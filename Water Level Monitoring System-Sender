@@ -1,1 +1,60 @@
 
+
+/*
+ HC-SR04 Ping distance sensor:
+ VCC to arduino 5v 
+ GND to arduino GND
+ Echo to Arduino pin 9 
+ Trig to Arduino pin 8*/
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+#define CE_PIN   9
+#define CSN_PIN 10
+#define JOYSTICK_X 3
+const uint64_t pipe = 0xE8E8F0F0E1LL; // Define the transmit pipe
+/*-----( Declare objects )-----*/
+RF24 radio(CE_PIN, CSN_PIN); // Create a Radio
+/*-----( Declare Variables )-----*/
+int joystick[2];  // 2 element array holding Joystick readings
+
+
+#define echopin  3 // echo pin
+#define trigpin 4 // Trigger pin
+int maximumRange = 50;
+long duration, distance;
+
+void setup() { 
+  Serial.begin (9600);
+  pinMode (trigpin, OUTPUT);
+  pinMode (echopin, INPUT );
+  radio.begin();
+  radio.openWritingPipe(pipe); 
+
+  delay(1000);
+}
+
+void loop ()
+
+{
+  digitalWrite(trigpin,LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigpin,HIGH);
+  delayMicroseconds(10);
+
+  duration=pulseIn (echopin,HIGH);
+
+  distance= duration/58.2;
+  delay (50);
+  Serial.println(distance);
+  send();
+  delay(2400);
+}
+void send()
+{
+  joystick[0] = distance;
+  radio.write( joystick, sizeof(joystick) );
+
+}
+
