@@ -1,1 +1,135 @@
+/*LCD RS pin to digital pin 12
+ LCD Enable pin to digital pin 11
+ * LCD D4 pin to digital pin 5
+ * LCD D5 pin to digital pin 4
+ * LCD D6 pin to digital pin 3
+ * LCD D7 pin to digital pin 2
+ * LCD R/W pin to ground
+ * 10K resistor:
+ * ends to +5V and ground
+ * wiper to LCD VO pin (pin 3)*/
+ 
+ /* nrf_arduino connection
+   1 - GND
+   2 - VCC 3.3V !!! NOT 5V
+   3 - CE to Arduino pin 9
+   4 - CSN to Arduino pin 10
+   5 - SCK to Arduino pin 13
+   6 - MOSI to Arduino pin 11
+   7 - MISO to Arduino pin 12
+   8 - UNUSED*/
 
+/*-----( Import needed libraries for nrf)-----*/
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+#include <SoftwareSerial.h>
+
+#include<LiquidCrystal.h> // include the library code for lcd
+LiquidCrystal lcd(A5, A4, 5, 4, 3, 2); //  
+/*-----( Declare Constants and Pin Numbers for nrf)-----*/
+#define CE_PIN   9
+#define CSN_PIN 10
+
+// NOTE: the "LL" at the end of the constant is "LongLong" type
+const uint64_t pipe = 0xE8E8F0F0E1LL; // Define the transmit pipe
+
+/*-----( Declare objects )-----*/
+RF24 radio(CE_PIN, CSN_PIN); // Create a Radio
+/*-----( Declare Variables )-----*/
+int joystick[2];  // 2 element array holding Joystick readings
+
+SoftwareSerial mySerial(6, 7);// arduino RX and TX
+//int maximumRange = 50;
+long duration, distance;
+
+void setup() {
+  lcd.begin(8,2);
+  mySerial.begin(9600); 
+  Serial.begin (9600);
+  delay(100);
+ 
+//***********setup code for nrf************** 
+  Serial.println("Nrf24L01 Receiver Starting");
+  radio.begin();
+  radio.openReadingPipe(1,pipe);
+  radio.startListening();
+}
+
+void loop ()
+
+{
+  //***********code for nrf_receive*****************
+  if (radio.available())
+  {
+    // Read the data payload until we've received everything
+    bool done = false;
+    while (!done)
+    {
+      // Fetch the data payload
+      done = radio.read( joystick, sizeof(joystick) );
+      Serial.print("Distance = ");
+      distance=joystick[0];
+      Serial.println(joystick[0]);
+      lcd.clear();
+      lcd.setCursor(0,0); 
+      lcd.print(distance);
+      delay(100);
+      if (distance >= 50 ){
+        Serial.println("LOW");
+        lcd.setCursor(0,1);
+        lcd.print("LOW ");
+        delay(100);
+        
+        SendMessage();
+        RecieveMessage();
+        
+        Serial.write(mySerial.read());
+        }
+
+       else if (distance<=5) {
+         Serial.println("HIGH");
+         lcd.setCursor(0,1);
+         lcd.print("HIGH");
+         delay(100);
+         
+         SendMessage1();
+         RecieveMessage();
+      
+         Serial.write(mySerial.read());
+          }
+
+     }
+  }
+}
+
+void SendMessage()
+{
+  mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  delay(1000);  // Delay of 1000 milli seconds or 1 second
+  mySerial.println("AT+CMGS=\"+91mobile number\"\r"); // Replace x with mobile number
+  delay(100);
+  mySerial.println("Waterlevel too low...Turn on the motor!!!!!");// The SMS text you want to send
+  delay(100);
+  mySerial.println((char)26);// ASCII code of CTRL+Z
+  delay(100);
+}
+
+void SendMessage1()
+{
+  mySerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  delay(24000);  // Delay of 1000 milli seconds or 1 second
+  mySerial.println("AT+CMGS=\"+91 mobile number\"\r"); // Replace x with mobile number
+  delay(100);
+  mySerial.println("Alert!!! Waterlevel too high.. Take precautions!");// The SMS text you want to send
+  delay(100);
+  mySerial.println((char)26);// ASCII code of CTRL+Z
+  delay(100);
+}
+
+void RecieveMessage()
+{
+  mySerial.println("AT+CNMI=2,2,0,0,0"); // AT Command to recieve a live SMS
+  delay(1000);
+}
